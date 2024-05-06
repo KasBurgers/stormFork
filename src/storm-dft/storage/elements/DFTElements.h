@@ -20,3 +20,4 @@
 #include "DFTDependency.h"
 #include "DFTMutex.h"
 #include "DFTSeq.h"
+#include "DFTSwitch.h"

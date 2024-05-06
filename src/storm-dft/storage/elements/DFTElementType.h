@@ -9,7 +9,7 @@ namespace elements {
 /*!
  * Element types in a DFT.
  */
-enum class DFTElementType { BE, AND, OR, VOT, PAND, POR, SPARE, PDEP, SEQ, MUTEX };
+enum class DFTElementType { BE, AND, OR, VOT, PAND, POR, SPARE, PDEP, SEQ, MUTEX, SWITCH};
 
 /*!
  * BE types in a DFT.
@@ -38,6 +38,8 @@ inline std::string toString(DFTElementType const& type) {
             return "SEQ";
         case DFTElementType::MUTEX:
             return "MUTEX";
+        case DFTElementType::SWITCH:
+            return "SWITCH";
         default:
             STORM_LOG_ASSERT(false, "DFT type not known.");
             return "";

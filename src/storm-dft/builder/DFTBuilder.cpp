@@ -252,6 +252,13 @@ void DFTBuilder<ValueType>::addVotingGate(std::string const& name, unsigned thre
 }
 
 template<typename ValueType>
+void DFTBuilder<ValueType>::addSwitchGate(std::string const& name, std::vector<std::string> const& children) {
+    STORM_LOG_THROW(children.size() <= 3, storm::exceptions::WrongFormatException,"Error more than 3 childern provided "<<children.size()<<".");
+    STORM_LOG_THROW(children.size() >= 3, storm::exceptions::WrongFormatException,"Error less than 3 childern provided "<<children.size()<<".");
+addGate(std::make_shared<storm::dft::storage::elements::DFTSwitch<ValueType>>(0, name), children);
+}
+
+template<typename ValueType>
 void DFTBuilder<ValueType>::addPandGate(std::string const& name, std::vector<std::string> const& children, bool inclusive) {
     addGate(std::make_shared<storm::dft::storage::elements::DFTPand<ValueType>>(0, name, inclusive), children);
 }

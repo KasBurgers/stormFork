@@ -133,6 +133,16 @@ class DFTBuilder {
      * @param children Names of children.
      * @param inclusive Whether the failure behaviour is inclusive (simultaneous failures are allowed) or not.
      */
+
+    void addSwitchGate(std::string const& name, std::vector<std::string> const& children);
+
+    /*!
+     * Create Switch-gate and add it to DFT.
+     * @param name Name.
+     * @param threshold Threshold specifying how many children need to fail.
+     * @param children Names of children.
+     */
+     
     void addPandGate(std::string const& name, std::vector<std::string> const& children, bool inclusive = true);
 
     /*!

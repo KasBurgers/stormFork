@@ -98,6 +98,8 @@ storm::dft::storage::DFT<ValueType> DFTJsonParser<ValueType>::parseJson(Json con
                 STORM_LOG_THROW(data.count("voting") > 0, storm::exceptions::WrongFormatException, "Voting gate '" << name << "' requires parameter 'voting'.");
                 std::string votThreshold = parseValue(data.at("voting"));
                 builder.addVotingGate(name, storm::parser::parseNumber<size_t>(votThreshold), childNames);
+            } else if (type == "switch") {
+                builder.addSwitchGate(name, childNames);
             } else if (type == "pand") {
                 if (data.count("inclusive") > 0) {
                     bool inclusive = data.at("inclusive");
