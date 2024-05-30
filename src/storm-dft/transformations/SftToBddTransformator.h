@@ -164,6 +164,9 @@ class SftToBddTransformator {
         } else if (gate->type() == storm::dft::storage::elements::DFTElementType::VOT) {
             return translate(std::dynamic_pointer_cast<storm::dft::storage::elements::DFTVot<ValueType> const>(gate));
         }
+        else if (gate->type() == storm::dft::storage::elements::DFTElementType::SWITCH) {
+            return translate(std::dynamic_pointer_cast<storm::dft::storage::elements::DFTSwitch<ValueType> const>(gate));
+        }
         STORM_LOG_THROW(false, storm::exceptions::NotSupportedException, "Gate of type \"" << gate->typestring() << "\" is not supported. Probably not a SFT.");
         return sylvanBddManager->getZero();
     }
@@ -200,17 +203,38 @@ class SftToBddTransformator {
      * \param bdds
      * A reference to all children of the vot gate as Bdds.
      */
-    Bdd translateVot(size_t const currentIndex, size_t const threshold, std::vector<Bdd> const& bdds) const {
-        if (threshold == 0) {
-            return sylvanBddManager->getOne();
-        } else if (currentIndex >= bdds.size()) {
-            return sylvanBddManager->getZero();
+Bdd translateVot(size_t const currentIndex, size_t const threshold, std::vector<Bdd> const& bdds) {
+    if (threshold == 0) {
+        return sylvanBddManager->getOne();
+    } else if (currentIndex >= bdds.size()) {
+        return sylvanBddManager->getZero();
+    }
+
+    auto const notChosenBdd = translateVot(currentIndex + 1, threshold, bdds);
+    auto const chosenBdd = translateVot(currentIndex + 1, threshold - 1, bdds);
+
+    return bdds[currentIndex].Ite(chosenBdd, notChosenBdd);
+}
+
+    /**
+     * Translate a DFT SWITCH gate into a BDD.
+     *
+     * \exception storm::exceptions::NotSupportedException
+     * The given DFT is not a SFT
+	 * 
+	 * As the input format (d,L,R) is assumed 
+	 * Bdds[0] represents the decision variable
+	 * Bdds[1] represents the left subtree
+	 * Bdds[2] represents the right subtree
+     */
+    Bdd translate(std::shared_ptr<storm::dft::storage::elements::DFTSwitch<ValueType> const> switchg) {
+        std::vector<Bdd> bdds;
+        bdds.reserve(switchg->children().size());
+        for (auto const& child : switchg->children()) {
+            bdds.push_back(translate(child));
         }
 
-        auto const notChosenBdd{translateVot(currentIndex + 1, threshold, bdds)};
-        auto const chosenBdd{translateVot(currentIndex + 1, threshold - 1, bdds)};
-
-        return bdds[currentIndex].Ite(chosenBdd, notChosenBdd);
+        return bdds[0].Ite(bdds[1], bdds[2]);
     }
 
     /**
