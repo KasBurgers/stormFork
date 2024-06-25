@@ -249,6 +249,11 @@ Bdd SFTBDDChecker::getTopLevelElementBdd() {
 std::shared_ptr<storm::dft::storage::DFT<ValueType>> SFTBDDChecker::getDFT() const noexcept {
     return transformator->getDFT();
 }
+
+std::map<std::string, Bdd> getDecisionEventBDDs() const noexcept {
+    return transformator->getDecisionEventBDDs();
+}
+
 std::shared_ptr<storm::dft::storage::SylvanBddManager> SFTBDDChecker::getSylvanBddManager() const noexcept {
     return transformator->getSylvanBddManager();
 }
@@ -334,16 +339,57 @@ void SFTBDDChecker::chunkCalculationTemplate(std::vector<ValueType> const &timep
     }
 }
 
+// ValueType SFTBDDChecker::getProbabilityAtTimebound(Bdd bdd, ValueType timebound) const {
+//     std::map<uint32_t, ValueType> indexToProbability{};
+//     for (auto const &be : getDFT()->getBasicElements()) {
+//         auto const currentIndex{getSylvanBddManager()->getIndex(be->name())};
+//         indexToProbability[currentIndex] = be->getUnreliability(timebound);
+//     }
+
+//     std::map<uint64_t, ValueType> bddToProbability{};
+//     auto const probability{recursiveProbability(bdd, indexToProbability, bddToProbability)};
+//     return probability;
+// }
+
 ValueType SFTBDDChecker::getProbabilityAtTimebound(Bdd bdd, ValueType timebound) const {
     std::map<uint32_t, ValueType> indexToProbability{};
+    std::list<uint32_t> IDList = {};
     for (auto const &be : getDFT()->getBasicElements()) {
         auto const currentIndex{getSylvanBddManager()->getIndex(be->name())};
         indexToProbability[currentIndex] = be->getUnreliability(timebound);
+        auto DecisionEventBDDs = getDecisionEventBDDs();
+   	if(DecisionEventBDDs.count(be->name())){
+   	//initialize to 0
+   	indexToProbability[currentIndex] = 0;
+   	IDList.push_back(currentIndex);
+   	}
     }
-
+      
+    if (!IDList.empty()){
+        GetBestindex(IDList,indexToProbability,bdd);
+      }
+    
     std::map<uint64_t, ValueType> bddToProbability{};
     auto const probability{recursiveProbability(bdd, indexToProbability, bddToProbability)};
     return probability;
+}
+
+ValueType SFTBDDChecker::GetBestindex(std::list<uint32_t> IDList, std::map<uint32_t, ValueType> indexToProbability, Bdd bdd) const{
+        
+if (!IDList.empty()){
+        auto itr = IDList.front();
+        IDList.pop_front();
+        indexToProbability[itr] = 0;
+        GetBestindex(IDList,indexToProbability,bdd);
+        indexToProbability[itr] = 1;
+        GetBestindex(IDList,indexToProbability,bdd);
+    }
+    else{
+    	std::map<uint64_t, ValueType> bddToProbability{};
+	auto test = recursiveProbability(bdd, indexToProbability, bddToProbability);
+	std::cout << "Probability " << test << '\n';
+	}
+        return 1;
 }
 
 std::vector<ValueType> SFTBDDChecker::getProbabilitiesAtTimepoints(Bdd bdd, std::vector<ValueType> const &timepoints, size_t chunksize) const {

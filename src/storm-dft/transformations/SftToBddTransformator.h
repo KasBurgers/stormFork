@@ -89,6 +89,14 @@ class SftToBddTransformator {
     std::shared_ptr<storm::dft::storage::DFT<ValueType>> getDFT() const noexcept {
         return dft;
     }
+    
+	/**
+     * \return List of BDD's related to the decision variables
+     */
+    std::map<std::string, Bdd> getDecisionEventBDDs() const noexcept {
+        return decisionEventBdds;
+    }
+
 
     /**
      * \return The internal sylvanBddManager
@@ -103,7 +111,8 @@ class SftToBddTransformator {
     std::shared_ptr<storm::dft::storage::DFT<ValueType>> dft;
     std::shared_ptr<storm::dft::storage::SylvanBddManager> sylvanBddManager;
     storm::dft::utility::RelevantEvents relevantEvents;
-
+    std::map<std::string, Bdd> decisionEventBdds{};
+	
     /**
      * Translate a simple DFT element into a BDD.
      *
@@ -230,10 +239,15 @@ Bdd translateVot(size_t const currentIndex, size_t const threshold, std::vector<
     Bdd translate(std::shared_ptr<storm::dft::storage::elements::DFTSwitch<ValueType> const> switchg) {
         std::vector<Bdd> bdds;
         bdds.reserve(switchg->children().size());
+        int loop = 0;
         for (auto const& child : switchg->children()) {
             bdds.push_back(translate(child));
+            //Save the first child as decision variable
+            if (loop == 0){
+            decisionEventBdds[child->name()] = translate(child);
+            loop = loop + 1;
+            }
         }
-
         return bdds[0].Ite(bdds[1], bdds[2]);
     }
 
