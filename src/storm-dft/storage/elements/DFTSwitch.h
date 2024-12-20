@@ -7,7 +7,7 @@ namespace storage {
 namespace elements {
 
 /*!
- * Switch gate.
+ * SWITCH gate.
  * Fails if at least one child has failed.
  */
 template<typename ValueType>
@@ -22,7 +22,6 @@ class DFTSwitch : public DFTGate<ValueType> {
      */
     DFTSwitch(size_t id, std::string const& name, std::vector<std::shared_ptr<DFTElement<ValueType>>> const& children = {})
         : DFTGate<ValueType>(id, name, children) {
-        // Intentionally empty
     }
 
     std::shared_ptr<DFTElement<ValueType>> clone() const override {

@@ -9,7 +9,7 @@ namespace elements {
 /*!
  * Element types in a DFT.
  */
-enum class DFTElementType { BE, AND, OR, VOT, PAND, POR, SPARE, PDEP, SEQ, MUTEX, SWITCH};
+enum class DFTElementType { BE, AND, OR, VOT, SWITCH, PAND, POR, SPARE, PDEP, SEQ, MUTEX};
 
 /*!
  * BE types in a DFT.

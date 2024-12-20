@@ -247,6 +247,16 @@ class DFT {
         return elements;
     }
 
+    std::vector<std::shared_ptr<storm::dft::storage::elements::DFTBE<ValueType>>> getNonBasicElements() const {
+        std::vector<std::shared_ptr<storm::dft::storage::elements::DFTBE<ValueType>>> elements;
+        for (DFTElementPointer elem : mElements) {
+            if (!elem->isBasicElement()) {
+                elements.push_back(std::static_pointer_cast<storm::dft::storage::elements::DFTBE<ValueType>>(elem));
+            }
+        }
+        return elements;
+    }
+
     bool canHaveNondeterminism() const;
 
     uint64_t maxRank() const;
@@ -340,6 +350,54 @@ class DFT {
      * @return All element ids.
      */
     std::set<size_t> getAllIds() const;
+
+    /*!
+     * Get all Ancestors of a element.
+     * @return All Ancestors of element.
+     */
+    std::set<size_t> getAllAncestors(int node) const;
+
+    /*!
+     * Get all Ancestors of a element.
+     * @return All Ancestors of element.
+     */
+    std::set<size_t> getAllDescendants(int node) const;
+
+    /*!
+     * Get all subModules of a module.
+     * @return Set of all modules of the given topModule (The topModule itself is included).
+     */
+    std::set<storm::dft::storage::DftIndependentModule> getAllSubModules() const;
+
+    /*!
+     * Check if a node is a root of its subtree
+     * @return True if node is a root of its subtree, False otherwise.
+     */
+    bool isRootOfSubtree(int node) const;
+
+    /*!
+     * Isolate the moduel/subtree with root nodeID
+     * @return moduel/subtree.
+     */
+    storm::dft::storage::DftModule isolateSubtree(int nodeID) const;
+
+    /*!
+     * calculate for each switch gates in switchList the amount of switch gates it has as parents.
+     * @return Sorted value pairs (x,y). x=ID y=amount of switch ancestors.
+     */
+    std::vector<std::pair<int, int>> getOrderedValuePairOfSwitchGates() const;
+
+    /*!
+     * calculate probability for provided Dft.
+     * @return probability values for subFt.
+     */
+    std::list<double> calculateProbability(storm::dft::storage::DftIndependentModule subFt) const;
+
+    /*!
+     * Replaces the subtree of the tree by a BE with the specified failure probabilityValue.
+     * @return probability values for subFt.
+     */
+    DFT<ValueType> replaceSubtree(DFT dft, storm::dft::storage::DftIndependentModule subFt, std::string probabilityValue) const;
 
     /*!
      * Check whether an element with the given name exists.

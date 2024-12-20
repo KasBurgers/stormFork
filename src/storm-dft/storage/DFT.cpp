@@ -1,13 +1,21 @@
 #include "DFT.h"
 
 #include <map>
+#include <queue>
+#include <unordered_set>
 
 #include "storm/exceptions/InvalidArgumentException.h"
 #include "storm/exceptions/NotSupportedException.h"
 #include "storm/exceptions/WrongFormatException.h"
+#include "storm/utility/iota_n.h"
 #include "storm/utility/vector.h"
 
 #include "storm-dft/builder/DFTBuilder.h"
+#include "storm-dft/modelchecker/SFTBDDChecker.h"
+#include "storm-dft/parser/DFTJsonParser.h"
+#include "storm-dft/storage/DFTIsomorphism.h"
+#include "storm-dft/transformations/SftToBddTransformator.h"
+#include "storm-dft/utility/DftModularizer.h"
 #include "storm-dft/utility/RelevantEvents.h"
 
 namespace storm::dft {
@@ -608,6 +616,7 @@ size_t DFT<ValueType>::nrDynamicElements() const {
             case storm::dft::storage::elements::DFTElementType::OR:
             case storm::dft::storage::elements::DFTElementType::VOT:
             case storm::dft::storage::elements::DFTElementType::BE:
+            case storm::dft::storage::elements::DFTElementType::SWITCH:
                 break;
             case storm::dft::storage::elements::DFTElementType::PAND:
             case storm::dft::storage::elements::DFTElementType::SPARE:
@@ -633,6 +642,7 @@ size_t DFT<ValueType>::nrStaticElements() const {
             case storm::dft::storage::elements::DFTElementType::AND:
             case storm::dft::storage::elements::DFTElementType::OR:
             case storm::dft::storage::elements::DFTElementType::VOT:
+            case storm::dft::storage::elements::DFTElementType::SWITCH:
                 ++noStatic;
                 break;
             case storm::dft::storage::elements::DFTElementType::BE:
@@ -878,11 +888,13 @@ void DFT<ValueType>::writeStatsToStream(std::ostream& stream) const {
     size_t noAnd = 0;
     size_t noOr = 0;
     size_t noVot = 0;
+    size_t noSwitch = 0;
     size_t noPand = 0;
     size_t noPor = 0;
     size_t noSpare = 0;
     size_t noDependency = 0;
     size_t noRestriction = 0;
+    std::list<double> switchList{};
     for (auto const& elem : mElements) {
         switch (elem->type()) {
             case storm::dft::storage::elements::DFTElementType::BE:
@@ -896,6 +908,10 @@ void DFT<ValueType>::writeStatsToStream(std::ostream& stream) const {
                 break;
             case storm::dft::storage::elements::DFTElementType::VOT:
                 ++noVot;
+                break;
+            case storm::dft::storage::elements::DFTElementType::SWITCH:
+                ++noSwitch;
+                switchList.push_back(elem->id());
                 break;
             case storm::dft::storage::elements::DFTElementType::PAND:
                 ++noPand;
@@ -948,6 +964,9 @@ void DFT<ValueType>::writeStatsToStream(std::ostream& stream) const {
     if (noVot > 0) {
         stream << "Number of VOT gates: " << noVot << '\n';
     }
+    if (noSwitch > 0) {
+        stream << "Number of SWITCH gates: " << noSwitch << '\n';
+    }
     if (noPand > 0) {
         stream << "Number of PAND gates: " << noPand << '\n';
     }
@@ -964,6 +983,159 @@ void DFT<ValueType>::writeStatsToStream(std::ostream& stream) const {
         stream << "Number of Restrictions: " << noRestriction << '\n';
     }
     stream << "=========================================\n";
+}
+
+template<typename ValueType>
+std::set<storm::dft::storage::DftIndependentModule> DFT<ValueType>::getAllSubModules() const {
+    std::set<storm::dft::storage::DftIndependentModule> allModules;
+    std::queue<storm::dft::storage::DftIndependentModule> moduleQueue;
+    storm::dft::utility::DftModularizer<ValueType> modularizer;
+    auto topModule = modularizer.computeModules(*this);
+
+    // Initialize queue
+    moduleQueue.push(topModule);
+
+    while (!moduleQueue.empty()) {
+        storm::dft::storage::DftIndependentModule current = moduleQueue.front();
+        moduleQueue.pop();
+        allModules.insert(current);
+        for (auto x : current.getSubModules()) {
+            if (!x.isSingleBE()) {
+                moduleQueue.push(x);
+            }
+        }
+    }
+    // std::cout << "AMOUNT OF MODULES: " << allModules.size() << '\n';
+    return allModules;
+}
+
+template<typename ValueType>
+DFT<ValueType> DFT<ValueType>::replaceSubtree(DFT dft, storm::dft::storage::DftIndependentModule subFt, std::string probabilityValue) const {
+    // std::cout << "Static FT Before change: " << '\n' << dft.getElementsString() << '\n';
+    std::set<size_t> toChangeElements;
+    toChangeElements.merge(subFt.getAllElements());
+
+    storm::dft::builder::DFTBuilder<ValueType> builder{};
+
+    for (auto const id : dft.getAllIds()) {
+        auto const element{dft.getElement(id)};
+        if (toChangeElements.find(id) == toChangeElements.end()) {
+            // Element is not part of subtree
+            builder.cloneElement(element);
+        } else {
+            // Element is part of subtree
+            if (id == subFt.getRepresentative()) {
+                // Element is root of subtree
+                storm::parser::ValueParser<ValueType> valueParser;
+                ValueType probability = valueParser.parseValue(probabilityValue);
+                ValueType dormancy = storm::utility::zero<ValueType>();
+                builder.addBasicElementProbability(element->name(), probability, dormancy);
+            }
+        }
+    }
+    builder.setTopLevel(dft.getTopLevelElement()->name());
+
+    auto newDft = (builder.build());
+    // std::cout << "Remaining static FT: " << '\n' << newDft.getElementsString() << '\n';
+    return newDft;
+}
+
+template<typename ValueType>
+std::list<double> DFT<ValueType>::calculateProbability(storm::dft::storage::DftIndependentModule subFt) const {
+    std::list<double> test{};
+    test.push_back(0.5);
+    test.push_back(0.6);
+    return test;
+}
+
+template<typename ValueType>
+std::vector<std::pair<int, int>> DFT<ValueType>::getOrderedValuePairOfSwitchGates() const {
+    // get value pairs for all switchgates (x,y) x=ID y=amount of switch ancestors
+    std::vector<std::pair<int, int>> values;
+    std::list<double> switchList{};
+
+    for (auto const& elem : mElements) {
+        if (elem->type() == storm::dft::storage::elements::DFTElementType::SWITCH) {
+            switchList.push_back(elem->id());
+        }
+    }
+
+    for (auto i : switchList) {
+        // stream << i << " is a switch gate" '\n';
+        auto counter = 0;
+        if (mElements[i]->hasParents()) {
+            for (auto j : getAllAncestors(i)) {
+                if (mElements[j]->type() == storm::dft::storage::elements::DFTElementType::SWITCH)
+                    counter++;
+                // stream << j << " is an ancestor of" << i << '\n';
+            }
+        }
+        // stream << i << " has " << counter << " SWITCH ancestors" << '\n';
+        values.push_back({int(i), int(counter)});
+    }
+
+    std::sort(values.begin(), values.end(), [](const std::pair<int, int>& a, const std::pair<int, int>& b) { return a.second < b.second; });
+    // stream << "Sorted value pairs x,y. x=ID y=amount of switch ancestors " << '\n';
+    for (const auto& pair : values) {
+        // stream << "(" << pair.first << ", " << pair.second << ")\n ";
+    }
+    return values;
+}
+
+template<typename ValueType>
+std::set<size_t> DFT<ValueType>::getAllAncestors(int nodeID) const {
+    std::set<size_t> parents;
+
+    if (mElements[nodeID]->hasParents()) {
+        for (auto parent : mElements[nodeID]->parents()) {
+            parents.insert(parent->id());
+            std::set<size_t> recursiveParents = getAllAncestors(parent->id());
+            parents.insert(recursiveParents.begin(), recursiveParents.end());
+        }
+    }
+
+    return parents;
+}
+
+template<typename ValueType>
+std::set<size_t> DFT<ValueType>::getAllDescendants(int nodeID) const {
+    std::set<size_t> children;
+
+    if (mElements[nodeID]->nrChildren() > 0) {
+        for (auto const& child : getGate(nodeID)->children()) {
+            children.insert(child->id());
+            std::set<size_t> recursiveChildren = getAllDescendants(child->id());
+            children.insert(recursiveChildren.begin(), recursiveChildren.end());
+        }
+    }
+    return children;
+}
+
+template<typename ValueType>
+bool DFT<ValueType>::isRootOfSubtree(int nodeID) const {
+    auto setOfDescendants = getAllDescendants(nodeID);
+    // std::set<size_t> subTree = setOfDescendants;
+    std::unordered_set<size_t> subTree(setOfDescendants.begin(), setOfDescendants.end());
+    subTree.insert(nodeID);
+
+    for (auto const& child : setOfDescendants) {
+        for (auto parent : mElements[child]->parents()) {
+            if (subTree.find(parent->id()) == subTree.end()) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+template<typename ValueType>
+storm::dft::storage::DftModule DFT<ValueType>::isolateSubtree(int nodeID) const {
+    auto setOfDescendants = getAllDescendants(nodeID);
+    std::set<size_t> subTree = setOfDescendants;
+    subTree.insert(nodeID);
+    storm::dft::storage::DftModule mod(nodeID, subTree);
+
+    return mod;
 }
 
 std::set<storm::RationalFunctionVariable> getParameters(DFT<storm::RationalFunction> const& dft) {
@@ -988,6 +1160,7 @@ std::set<storm::RationalFunctionVariable> getParameters(DFT<storm::RationalFunct
             case storm::dft::storage::elements::DFTElementType::AND:
             case storm::dft::storage::elements::DFTElementType::OR:
             case storm::dft::storage::elements::DFTElementType::VOT:
+            case storm::dft::storage::elements::DFTElementType::SWITCH:
             case storm::dft::storage::elements::DFTElementType::PAND:
             case storm::dft::storage::elements::DFTElementType::POR:
             case storm::dft::storage::elements::DFTElementType::SPARE:

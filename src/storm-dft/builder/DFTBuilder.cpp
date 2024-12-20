@@ -253,9 +253,9 @@ void DFTBuilder<ValueType>::addVotingGate(std::string const& name, unsigned thre
 
 template<typename ValueType>
 void DFTBuilder<ValueType>::addSwitchGate(std::string const& name, std::vector<std::string> const& children) {
-    STORM_LOG_THROW(children.size() <= 3, storm::exceptions::WrongFormatException,"Error more than 3 childern provided "<<children.size()<<".");
-    STORM_LOG_THROW(children.size() >= 3, storm::exceptions::WrongFormatException,"Error less than 3 childern provided "<<children.size()<<".");
-addGate(std::make_shared<storm::dft::storage::elements::DFTSwitch<ValueType>>(0, name), children);
+    STORM_LOG_THROW(children.size() <= 3, storm::exceptions::WrongFormatException, "Error more than 3 childern provided " << children.size() << ".");
+    STORM_LOG_THROW(children.size() >= 3, storm::exceptions::WrongFormatException, "Error less than 3 childern provided " << children.size() << ".");
+    addGate(std::make_shared<storm::dft::storage::elements::DFTSwitch<ValueType>>(0, name), children);
 }
 
 template<typename ValueType>
@@ -330,6 +330,7 @@ void DFTBuilder<ValueType>::cloneElement(DFTElementCPointer element) {
         case storm::dft::storage::elements::DFTElementType::AND:
         case storm::dft::storage::elements::DFTElementType::OR:
         case storm::dft::storage::elements::DFTElementType::VOT:
+        case storm::dft::storage::elements::DFTElementType::SWITCH:
         case storm::dft::storage::elements::DFTElementType::PAND:
         case storm::dft::storage::elements::DFTElementType::POR:
         case storm::dft::storage::elements::DFTElementType::SPARE:
@@ -364,6 +365,7 @@ void DFTBuilder<ValueType>::cloneElementWithNewChildren(DFTChildrenCPointer elem
         case storm::dft::storage::elements::DFTElementType::AND:
         case storm::dft::storage::elements::DFTElementType::OR:
         case storm::dft::storage::elements::DFTElementType::VOT:
+        case storm::dft::storage::elements::DFTElementType::SWITCH:
         case storm::dft::storage::elements::DFTElementType::PAND:
         case storm::dft::storage::elements::DFTElementType::POR:
         case storm::dft::storage::elements::DFTElementType::SPARE:
