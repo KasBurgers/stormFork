@@ -33,7 +33,7 @@ class SFTBDDChecker {
      * \return The internal DFT
      */
     std::shared_ptr<storm::dft::storage::DFT<ValueType>> getDFT() const noexcept;
-    
+
     /**
      * \return A mapped list of Bdd's related to decision variables
      */
@@ -92,14 +92,33 @@ class SFTBDDChecker {
      * Must be from a call to some function of *this.
      */
     ValueType getProbabilityAtTimebound(Bdd bdd, ValueType timebound) const;
-    
+
+    /**
+     * \return
+     * The Probability that the top level event fails.
+     */
+    std::list<double> getProbabilityAtTimeboundSwitch(ValueType timebound) {
+        return getProbabilityListAtTimeboundSwitchGate(getTopLevelElementBdd(), timebound);
+    }
+
+    /**
+     * \return
+     * The Probabilities that the given Event fails at the given timebound.
+     *
+     * \param bdd
+     * The bdd that represents an event in the dft.
+     * Must be from a call to some function of *this.
+     */
+    std::list<double> getProbabilityListAtTimeboundSwitchGate(Bdd bdd, ValueType timebound) const;
+
     /**
      * \return
      * Best combination of index
      *
      * \param IDList
      */
-    ValueType GetBestindex(std::list<uint32_t> IDList,std::map<uint32_t, ValueType> indexToProbability, Bdd bdd)const;
+    std::list<double> CalculateAllConfigurations(std::list<uint32_t> IDList, std::map<uint32_t, ValueType> indexToProbability, Bdd bdd,
+                                                 std::list<double> out) const;
 
     /**
      * \return
@@ -369,7 +388,7 @@ class SFTBDDChecker {
      * Will be populated by the function.
      */
     void recursiveMCS(Bdd const bdd, std::vector<uint32_t> &buffer, std::vector<std::vector<uint32_t>> &minimalCutSets) const;
-    
+
     template<typename FuncType>
     void chunkCalculationTemplate(std::vector<ValueType> const &timepoints, size_t chunksize, FuncType func) const;
 
