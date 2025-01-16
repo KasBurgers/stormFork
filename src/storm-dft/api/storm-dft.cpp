@@ -17,474 +17,512 @@
 #include "storm-dft/utility/MTTFHelper.h"
 
 namespace storm::dft {
-namespace api {
+	namespace api {
 
-template<>
-void analyzeDFTBdd(std::shared_ptr<storm::dft::storage::DFT<double>> const& dft, bool const exportToDot, std::string const& filename, bool const calculateMttf,
-                   double const mttfPrecision, double const mttfStepsize, std::string const mttfAlgorithmName, bool const calculateMCS,
-                   bool const calculateProbability, bool const useModularisation, std::string const importanceMeasureName,
-                   std::vector<double> const& timepoints, std::vector<std::shared_ptr<storm::logic::Formula const>> const& properties,
-                   std::vector<std::string> const& additionalRelevantEventNames, size_t const chunksize) {
-    if (calculateMttf) {
-        if (mttfAlgorithmName == "proceeding") {
-            std::cout << "The numerically approximated MTTF is " << storm::dft::utility::MTTFHelperProceeding(dft, mttfStepsize, mttfPrecision) << '\n';
-        } else if (mttfAlgorithmName == "variableChange") {
-            std::cout << "The numerically approximated MTTF is " << storm::dft::utility::MTTFHelperVariableChange(dft, mttfStepsize) << '\n';
-        }
-    }
+		template<>
+		void analyzeDFTBdd(std::shared_ptr<storm::dft::storage::DFT<double>> const& dft, bool const exportToDot, std::string const& filename, bool const calculateMttf,
+			double const mttfPrecision, double const mttfStepsize, std::string const mttfAlgorithmName, bool const calculateMCS,
+			bool const calculateProbability, bool const useModularisation, std::string const importanceMeasureName,
+			std::vector<double> const& timepoints, std::vector<std::shared_ptr<storm::logic::Formula const>> const& properties,
+			std::vector<std::string> const& additionalRelevantEventNames, size_t const chunksize) {
+			if (calculateMttf) {
+				if (mttfAlgorithmName == "proceeding") {
+					std::cout << "The numerically approximated MTTF is " << storm::dft::utility::MTTFHelperProceeding(dft, mttfStepsize, mttfPrecision) << '\n';
+				}
+				else if (mttfAlgorithmName == "variableChange") {
+					std::cout << "The numerically approximated MTTF is " << storm::dft::utility::MTTFHelperVariableChange(dft, mttfStepsize) << '\n';
+				}
+			}
 
-    if (useModularisation && calculateProbability) {
-        storm::dft::modelchecker::DftModularizationChecker checker{dft};
-        if (chunksize == 1) {
-            for (auto const& timebound : timepoints) {
-                auto const probability{checker.getProbabilityAtTimebound(timebound)};
-                std::cout << "System failure probability at timebound " << timebound << " is " << probability << '\n';
-            }
-        } else {
-            auto const probabilities{checker.getProbabilitiesAtTimepoints(timepoints, chunksize)};
-            for (size_t i{0}; i < timepoints.size(); ++i) {
-                auto const timebound{timepoints[i]};
-                auto const probability{probabilities[i]};
-                std::cout << "System failure probability at timebound " << timebound << " is " << probability << '\n';
-            }
-        }
-        if (!properties.empty()) {
-            auto const probabilities{checker.check(properties, chunksize)};
-            for (size_t i{0}; i < probabilities.size(); ++i) {
-                std::cout << "Property \"" << properties.at(i)->toString() << "\" has result " << probabilities.at(i) << '\n';
-            }
-        }
-        return;
-    } else {
-        STORM_LOG_THROW(dft->nrDynamicElements() == 0, storm::exceptions::NotSupportedException,
-                        "DFT is dynamic. "
-                        "Bdds can only be used on static fault trees. "
-                        "Try modularisation.");
-    }
 
-    auto sylvanBddManager{std::make_shared<storm::dft::storage::SylvanBddManager>()};
-    sylvanBddManager->execute([&]() {
-        storm::dft::utility::RelevantEvents relevantEvents{additionalRelevantEventNames.begin(), additionalRelevantEventNames.end()};
-        storm::dft::adapters::SFTBDDPropertyFormulaAdapter adapter{dft, properties, relevantEvents, sylvanBddManager};
-        auto checker{adapter.getSFTBDDChecker()};
+			if (useModularisation && calculateProbability) {
+				storm::dft::modelchecker::DftModularizationChecker checker{ dft };
+				if (chunksize == 1) {
+					for (auto const& timebound : timepoints) {
+						auto const probability{ checker.getProbabilityAtTimebound(timebound) };
+						std::cout << "System failure probability at timebound " << timebound << " is " << probability << '\n';
+					}
+				}
+				else {
+					auto const probabilities{ checker.getProbabilitiesAtTimepoints(timepoints, chunksize) };
+					for (size_t i{ 0 }; i < timepoints.size(); ++i) {
+						auto const timebound{ timepoints[i] };
+						auto const probability{ probabilities[i] };
+						std::cout << "System failure probability at timebound " << timebound << " is " << probability << '\n';
+					}
+				}
+				if (!properties.empty()) {
+					auto const probabilities{ checker.check(properties, chunksize) };
+					for (size_t i{ 0 }; i < probabilities.size(); ++i) {
+						std::cout << "Property \"" << properties.at(i)->toString() << "\" has result " << probabilities.at(i) << '\n';
+					}
+				}
+				return;
+			}
+			else {
+				STORM_LOG_THROW(dft->nrDynamicElements() == 0, storm::exceptions::NotSupportedException,
+					"DFT is dynamic. "
+					"Bdds can only be used on static fault trees. "
+					"Try modularisation.");
+			}
 
-        if (exportToDot) {
-            checker->exportBddToDot(filename);
-        }
+			auto sylvanBddManager{ std::make_shared<storm::dft::storage::SylvanBddManager>() };
+			sylvanBddManager->execute([&]() {
+				storm::dft::utility::RelevantEvents relevantEvents{ additionalRelevantEventNames.begin(), additionalRelevantEventNames.end() };
+				storm::dft::adapters::SFTBDDPropertyFormulaAdapter adapter{ dft, properties, relevantEvents, sylvanBddManager };
+				auto checker{ adapter.getSFTBDDChecker() };
 
-        if (calculateMCS) {
-            auto const minimalCutSets{checker->getMinimalCutSetsAsIndices()};
-            auto const sylvanBddManager{checker->getSylvanBddManager()};
+				if (exportToDot) {
+					checker->exportBddToDot(filename);
+				}
 
-            std::cout << "{\n";
-            for (auto const& minimalCutSet : minimalCutSets) {
-                std::cout << '{';
-                for (auto const& be : minimalCutSet) {
-                    std::cout << sylvanBddManager->getName(be) << ' ';
-                }
-                std::cout << "},\n";
-            }
-            std::cout << "}\n";
-        }
+				if (calculateMCS) {
+					auto const minimalCutSets{ checker->getMinimalCutSetsAsIndices() };
+					auto const sylvanBddManager{ checker->getSylvanBddManager() };
 
-        if (calculateProbability & (!dft->getOrderedValuePairOfSwitchGates().empty())) {
-            std::cout << "Start family-based analysis " << '\n';
-            storm::utility::Stopwatch familyBasedAnalysisTimer;
-            storm::utility::Stopwatch MTBDDTimer;
-            storm::utility::Stopwatch ValuePairTimer;
-            storm::utility::Stopwatch calcProb;
-            storm::utility::Stopwatch subModulesTimer;
-            storm::utility::Stopwatch replaceTreeTimer;
-            familyBasedAnalysisTimer.start();
+					std::cout << "{\n";
+					for (auto const& minimalCutSet : minimalCutSets) {
+						std::cout << '{';
+						for (auto const& be : minimalCutSet) {
+							std::cout << sylvanBddManager->getName(be) << ' ';
+						}
+						std::cout << "},\n";
+					}
+					std::cout << "}\n";
+				}
 
-            ValuePairTimer.start();
-            auto listOfPairs = dft->getOrderedValuePairOfSwitchGates();
-            ValuePairTimer.stop();
+				if (calculateProbability & (!dft->getOrderedValuePairOfSwitchGates().empty())) {
+					std::cout << "Start family-based analysis " << '\n';
+					storm::utility::Stopwatch familyBasedAnalysisTimer;
+					storm::utility::Stopwatch MTBDDTimer;
+					storm::utility::Stopwatch ValuePairTimer;
+					storm::utility::Stopwatch calcProb;
+					storm::utility::Stopwatch subModulesTimer;
+					storm::utility::Stopwatch replaceTreeTimer;
+					familyBasedAnalysisTimer.start();
 
-            auto subModules = dft->getAllSubModules();
-            auto remainingFT = *dft;
-            auto remainingFTOut = *dft;
-            auto startFT = *dft;
-            std::list<storm::dft::storage::DFT<double>> ftList;
-            std::deque<std::string> orderedListOfNames;
-            std::deque<std::string> MTBDDorderedListOfNames;
-            std::deque<int> MTBDDorderedListOfIds;
-            std::set<std::string> MTBDDSetOfNames;
-            std::deque<double> output;
-            auto rootCounter = 0;
+					ValuePairTimer.start();
+					auto listOfPairs = dft->getOrderedValuePairOfSwitchGates();
+					ValuePairTimer.stop();
 
-            ValuePairTimer.start();
-            for (auto x : listOfPairs) {
-                auto id = x.first;
-                auto name = remainingFT.getElement(id)->name();
-                if (dft->isRootOfSubtree(id)) {
-                    std::cout << "is a root =  " << name << '\n';
-                    orderedListOfNames.push_back(name);
-                    MTBDDorderedListOfIds.push_front(id);
-                    rootCounter++;
-                }
-            }
+					auto subModules = dft->getAllSubModules();
+					auto remainingFT = *dft;
+					auto remainingFTOut = *dft;
+					auto startFT = *dft;
+					std::list<storm::dft::storage::DFT<double>> ftList;
+					std::deque<std::string> orderedListOfNames;
+					std::deque<std::string> listOfNames;
+					std::deque<int> listOfIDs;
+					std::deque<std::string> MTBDDorderedListOfNames;
+					std::deque<int> MTBDDorderedListOfIds;
+					std::set<std::string> MTBDDSetOfNames;
+					std::deque<double> output;
+					auto rootCounter = 0;
 
-            for (auto y : MTBDDorderedListOfIds) {
-                auto allDesc = dft->getAllDescendants(y);
-                auto name = remainingFT.getElement(y)->name();
-                if (MTBDDSetOfNames.find(name) == MTBDDSetOfNames.end()) {
-                    MTBDDorderedListOfNames.push_back(name);
-                    MTBDDSetOfNames.insert(name);
-                }
+					ValuePairTimer.start();
+					for (auto x : listOfPairs) {
+						auto id = x.first;
+						auto name = remainingFT.getElement(id)->name();
+						if (dft->isRootOfSubtree(id)) {
+							std::cout << "is a root =  " << name << '\n';
+							orderedListOfNames.push_back(name);
+							MTBDDorderedListOfIds.push_front(id);
+							rootCounter++;
+						}
+						std::cout << "test order =  " << name << '\n';
+						listOfNames.push_back(name);
+						listOfIDs.push_back(id);
+					}
 
-                for (auto z : allDesc) {
-                    auto nameDesc = remainingFT.getElement(z)->name();
-                    if (remainingFT.getElement(z)->type() == storm::dft::storage::elements::DFTElementType::SWITCH) {
-                        if (MTBDDSetOfNames.find(nameDesc) == MTBDDSetOfNames.end()) {
-                            MTBDDorderedListOfNames.push_back(nameDesc);
-                            MTBDDSetOfNames.insert(nameDesc);
-                        }
-                    }
-                }
-            }
+					for (auto y : MTBDDorderedListOfIds) {
+						auto allDesc = dft->getAllDescendants(y);
+						std::deque<std::string> allDescNames;
+						for(auto desc : allDesc){
+							allDescNames.push_back(remainingFT.getElement(desc)->name());
+						}
+						auto name = remainingFT.getElement(y)->name();
+						std::cout << "testINGG order =  " << name << '\n';
+						if (MTBDDSetOfNames.find(name) == MTBDDSetOfNames.end()) {
+							MTBDDorderedListOfNames.push_back(name);
+							MTBDDSetOfNames.insert(name);
+							std::cout << "test2 order =  " << name << '\n';
+						}
 
-            ValuePairTimer.stop();
+						for (auto z : listOfIDs)
+						 {
+							auto nameDesc = remainingFT.getElement(z)->name();
+							auto itr = find(allDescNames.begin(),allDescNames.end(),nameDesc);
+							if (itr != allDescNames.end())
+							{
+								
+								if (remainingFT.getElement(z)->type() == storm::dft::storage::elements::DFTElementType::SWITCH)
+								{
+									if (MTBDDSetOfNames.find(nameDesc) == MTBDDSetOfNames.end())
+									{
+										MTBDDorderedListOfNames.push_back(nameDesc);
+										MTBDDSetOfNames.insert(nameDesc);
+										std::cout << "test3 order =  " << nameDesc << '\n';
+									}
+								}
+							}
+						 }
+					}
 
-            auto topLevelName = remainingFT.getElement(remainingFT.getTopLevelIndex())->name();
-            // make sure topLevel is analysed even when top is no switch
-            if (std::find(orderedListOfNames.begin(), orderedListOfNames.end(), topLevelName) == orderedListOfNames.end()) {
-                orderedListOfNames.push_front(topLevelName);
-            }
+					for(auto q : listOfNames){
+						auto itr = find(MTBDDorderedListOfNames.begin(),MTBDDorderedListOfNames.end(),q);
+						if(itr == MTBDDorderedListOfNames.end()){
+							MTBDDorderedListOfNames.push_back(q);
+						}
+					}
 
-            ftList.push_back(remainingFTOut);
-            orderedListOfNames.push_back("placeholder");
 
-            while (!orderedListOfNames.empty()) {
-                // pop placeholder
-                orderedListOfNames.pop_back();
-                // update remainingFT
 
-                auto ftListCopy = ftList;
-                for (auto differentFT : ftListCopy) {
-                    remainingFT = differentFT;
+					ValuePairTimer.stop();
 
-                    // update modules
-                    subModules = remainingFT.getAllSubModules();
-                    bool swapped = false;
+					auto topLevelName = remainingFT.getElement(remainingFT.getTopLevelIndex())->name();
+					// make sure topLevel is analysed even when top is no switch
+					if (std::find(orderedListOfNames.begin(), orderedListOfNames.end(), topLevelName) == orderedListOfNames.end()) {
+						orderedListOfNames.push_front(topLevelName);
+					}
 
-                    for (auto subFt : subModules) {
-                        subModulesTimer.start();
-                        // get name of representative
-                        auto ID = subFt.getRepresentative();
-                        auto elementName = remainingFT.getElement(ID)->name();
-                        // break loop early if list is empty already
-                        if (orderedListOfNames.empty()) {
-                            break;
-                        }
+					ftList.push_back(remainingFTOut);
+					orderedListOfNames.push_back("placeholder");
 
-                        // debug purpuse
-                        // std::cout << "value 1 =  " << orderedListOfNames.back() << '\n';
-                        // std::cout << "value 2 =  " << elementName << '\n';
-                        subModulesTimer.stop();
-                        if (orderedListOfNames.back() == elementName && swapped == false) {
-                            subModulesTimer.start();
-                            // std::cout << "inside ifloop 2 " << '\n';
-                            // pop current element
-                            if (ftList.empty()) {
-                                orderedListOfNames.pop_back();
-                            } else {
-                                ftList.pop_front();
-                            }
-                            // swap has occured no need to swap again this itteration
-                            swapped = true;
+					while (!orderedListOfNames.empty()) {
+						//pop placeholder
+						orderedListOfNames.pop_back();
+						//update remainingFT
 
-                            auto newDft = subFt.getSubtree(remainingFT);
-                            storm::dft::adapters::SFTBDDPropertyFormulaAdapter adapter2{std::make_shared<storm::dft::storage::DFT<double>>(newDft), properties,
-                                                                                        relevantEvents, sylvanBddManager};
-                            auto checker2{adapter2.getSFTBDDChecker()};
-                            std::string outputProb = "";
-                            std::list<double> probList;
+						auto ftListCopy = ftList;
+						for (auto differentFT : ftListCopy) {
+							remainingFT = differentFT;
 
-                            subModulesTimer.stop();
-                            calcProb.start();
-                            for (auto const& timebound : timepoints) {
-                                auto const probability{checker2->getProbabilityAtTimeboundSwitch(timebound)};
-                                for (auto x : probability) {
-                                    outputProb = std::to_string(x);
-                                    // std::cout << outputProb << '\n';
-                                    // std::cout << "intermediate time " << calcProb.getTimeInSeconds() << "s" << '\n';
-                                }
-                                probList = probability;
-                            }
-                            calcProb.stop();
+							//update modules
+							subModules = remainingFT.getAllSubModules();
+							bool swapped = false;
 
-                            replaceTreeTimer.start();
-                            for (auto x : probList) {
-                                outputProb = std::to_string(x);
-                                remainingFTOut = newDft.replaceSubtree(remainingFT, subFt, outputProb);
 
-                                if (!remainingFTOut.isBasicElement(remainingFTOut.getTopLevelIndex())) {
-                                    ftList.push_back(remainingFTOut);
-                                } else {
-                                    output.push_back(x);
-                                }
-                            }
-                            replaceTreeTimer.stop();
-                        }
-                        if (swapped) {
-                            break;
-                        }
-                    }
-                    if (!swapped) {
-                        orderedListOfNames.pop_back();
-                    }
-                }
-            }
-            for (auto out : output) {
-                std::cout << "Prob " << out << '\n';
-            }
+							for (auto subFt : subModules) {
+								subModulesTimer.start();
+								//get name of representative
+								auto ID = subFt.getRepresentative();
+								auto elementName = remainingFT.getElement(ID)->name();
+								//break loop early if list is empty already
+								if (orderedListOfNames.empty()) {
+									break;
+								}
 
-            MTBDDTimer.start();
-            // make MTBDD out of leaves
-            std::deque<storm::dd::Add<storm::dd::DdType::Sylvan, double>> terminal_nodes;
-            std::shared_ptr<storm::dd::DdManager<storm::dd::DdType::Sylvan>> manager(new storm::dd::DdManager<storm::dd::DdType::Sylvan>());
+								//debug purpuse
+								//std::cout << "value 1 =  " << orderedListOfNames.back() << '\n';
+								//std::cout << "value 2 =  " << elementName << '\n';
+								subModulesTimer.stop();
+								if (orderedListOfNames.back() == elementName && swapped == false)
+								{
+									subModulesTimer.start();
+									//std::cout << "inside ifloop 2 " << '\n';
+									//pop current element
+									if (ftList.empty()) {
+										orderedListOfNames.pop_back();
+									}
+									else {
+										ftList.pop_front();
+									}
+									//swap has occured no need to swap again this itteration
+									swapped = true;
 
-            std::cout << "Order: ";
-            for (auto name : MTBDDorderedListOfNames) {
-                std::cout << name << ", ";
-            }
-            std::cout << '\n';
+									auto newDft = subFt.getSubtree(remainingFT);
 
-            for (int i = 0; i < output.size(); i++) {
-                terminal_nodes.push_back(manager->getConstant(output[i]));
-            }
-            std::deque<std::pair<storm::expressions::Variable, storm::expressions::Variable>> variableQueue;
-            for (int i = 0; i < MTBDDorderedListOfNames.size(); i++) {
-                variableQueue.push_back(manager->addMetaVariable(MTBDDorderedListOfNames[i], 0, 1));
-            }
+									storm::dft::adapters::SFTBDDPropertyFormulaAdapter adapter2{ std::make_shared<storm::dft::storage::DFT<double>>(newDft), properties, relevantEvents, sylvanBddManager };
+									auto checker2{ adapter2.getSFTBDDChecker() };
+									std::string outputProb = "";
+									std::list<double> probList;
 
-            std::deque<storm::dd::Add<storm::dd::DdType::Sylvan, double>> nodeQueue;
-            for (auto variable : variableQueue) {
-                // make nodes containing terminal nodes
-                if (variable == variableQueue[0]) {
-                    for (int i = 0; i < output.size(); i += 2) {
-                        nodeQueue.push_back(manager->getEncoding(variable.first, 0).ite(terminal_nodes[i], terminal_nodes[i + 1]));
-                    }
-                }
-                // first nodes are made
-                else {
-                    auto loopSize = nodeQueue.size() / 2;
-                    for (int i = 0; i < loopSize; i++) {
-                        nodeQueue.push_back(manager->getEncoding(variable.first, 0).ite(nodeQueue[0], nodeQueue[1]));
-                        // pop used nodes
-                        nodeQueue.pop_front();
-                        nodeQueue.pop_front();
-                    }
-                }
-            }
-            nodeQueue[0].exportToDot(filename + "MTBB.txt");
-            familyBasedAnalysisTimer.stop();
-            MTBDDTimer.stop();
-            std::cout << "Calculation time " << familyBasedAnalysisTimer.getTimeInMilliseconds() << "ms" << '\n';
-            std::cout << "ValuePair time " << ValuePairTimer.getTimeInMilliseconds() << "ms" << '\n';
-            std::cout << "submodule time " << subModulesTimer.getTimeInMilliseconds() << "ms" << '\n';
-            std::cout << "CalcProb time " << calcProb.getTimeInMilliseconds() << "ms" << '\n';
-            std::cout << "replaceTreeTimer time " << replaceTreeTimer.getTimeInMilliseconds() << "ms" << '\n';
-            std::cout << "MTBDDTimer time " << MTBDDTimer.getTimeInMilliseconds() << "ms" << '\n';
-            std::cout << "root counter " << rootCounter << '\n';
-        }
+									subModulesTimer.stop();
+									calcProb.start();
+									for (auto const& timebound : timepoints) {
+										auto const probability{ checker2->getProbabilityAtTimeboundSwitch(timebound) };
+										for (auto x : probability) {
+											outputProb = std::to_string(x);
+											//std::cout << outputProb << '\n';
+											//std::cout << "intermediate time " << calcProb.getTimeInSeconds() << "s" << '\n';
 
-        if (calculateProbability & (dft->getOrderedValuePairOfSwitchGates().empty())) {
-            // if (calculateProbability) {
-            std::cout << "Start naive family-based analysis " << '\n';
-            storm::utility::Stopwatch naiveAnalysisTimer;
-            naiveAnalysisTimer.start();
-            if (chunksize == 1) {
-                for (auto const& timebound : timepoints) {
-                    auto const probability{checker->getProbabilityAtTimebound(timebound)};
-                    std::cout << "System failure probability at timebound " << timebound << " is " << probability << '\n';
-                }
-            } else {
-                auto const probabilities{checker->getProbabilitiesAtTimepoints(timepoints, chunksize)};
-                for (size_t i{0}; i < timepoints.size(); ++i) {
-                    auto const timebound{timepoints[i]};
-                    auto const probability{probabilities[i]};
-                    std::cout << "System failure probability at timebound " << timebound << " is " << probability << '\n';
-                }
-            }
+										}
+										probList = probability;
+									}
+									calcProb.stop();
 
-            if (!properties.empty()) {
-                auto const probabilities{adapter.check(chunksize)};
-                for (size_t i{0}; i < probabilities.size(); ++i) {
-                    std::cout << "Property \"" << properties.at(i)->toString() << "\" has result " << probabilities.at(i) << '\n';
-                }
-            }
-            naiveAnalysisTimer.stop();
-            std::cout << "naiveAnalysisTimer time " << naiveAnalysisTimer.getTimeInMilliseconds() << "ms" << '\n';
-        }
+									replaceTreeTimer.start();
+									for (auto x : probList) {
+										outputProb = std::to_string(x);
+										remainingFTOut = newDft.replaceSubtree(remainingFT, subFt, outputProb);
 
-        if (importanceMeasureName != "" && timepoints.size() == 1) {
-            auto const bes{dft->getBasicElements()};
-            std::vector<double> values{};
-            if (importanceMeasureName == "MIF") {
-                values = checker->getAllBirnbaumFactorsAtTimebound(timepoints[0]);
-            }
-            if (importanceMeasureName == "CIF") {
-                values = checker->getAllCIFsAtTimebound(timepoints[0]);
-            }
-            if (importanceMeasureName == "DIF") {
-                values = checker->getAllDIFsAtTimebound(timepoints[0]);
-            }
-            if (importanceMeasureName == "RAW") {
-                values = checker->getAllRAWsAtTimebound(timepoints[0]);
-            }
-            if (importanceMeasureName == "RRW") {
-                values = checker->getAllRRWsAtTimebound(timepoints[0]);
-            }
+										if (!remainingFTOut.isBasicElement(remainingFTOut.getTopLevelIndex())) {
+											ftList.push_back(remainingFTOut);
+										}
+										else {
+											output.push_back(x);
+										}
 
-            for (size_t i{0}; i < bes.size(); ++i) {
-                std::cout << importanceMeasureName << " for the basic event " << bes[i]->name() << " at timebound " << timepoints[0] << " is " << values[i]
-                          << '\n';
-            }
-        } else if (importanceMeasureName != "") {
-            auto const bes{dft->getBasicElements()};
-            std::vector<std::vector<double>> values{};
-            if (importanceMeasureName == "MIF") {
-                values = checker->getAllBirnbaumFactorsAtTimepoints(timepoints, chunksize);
-            }
-            if (importanceMeasureName == "CIF") {
-                values = checker->getAllCIFsAtTimepoints(timepoints, chunksize);
-            }
-            if (importanceMeasureName == "DIF") {
-                values = checker->getAllDIFsAtTimepoints(timepoints, chunksize);
-            }
-            if (importanceMeasureName == "RAW") {
-                values = checker->getAllRAWsAtTimepoints(timepoints, chunksize);
-            }
-            if (importanceMeasureName == "RRW") {
-                values = checker->getAllRRWsAtTimepoints(timepoints, chunksize);
-            }
-            for (size_t i{0}; i < bes.size(); ++i) {
-                for (size_t j{0}; j < timepoints.size(); ++j) {
-                    std::cout << importanceMeasureName << " for the basic event " << bes[i]->name() << " at timebound " << timepoints[j] << " is "
-                              << values[i][j] << '\n';
-                }
-            }
-        }
-    });
-}
+									}
+									replaceTreeTimer.stop();
+								}
+								if (swapped) {
+									break;
+								}
+							}
+							if (!swapped) {
+								orderedListOfNames.pop_back();
+							}
+						}
+					}
+					for (auto out : output) {
+						std::cout << "Prob " << out << '\n';
+					}
 
-template<>
-void analyzeDFTBdd(std::shared_ptr<storm::dft::storage::DFT<storm::RationalFunction>> const& dft, bool const exportToDot, std::string const& filename,
-                   bool const calculateMttf, double const mttfPrecision, double const mttfStepsize, std::string const mttfAlgorithmName,
-                   bool const calculateMCS, bool const calculateProbability, bool const useModularisation, std::string const importanceMeasureName,
-                   std::vector<double> const& timepoints, std::vector<std::shared_ptr<storm::logic::Formula const>> const& properties,
-                   std::vector<std::string> const& additionalRelevantEventNames, size_t const chunksize) {
-    STORM_LOG_THROW(false, storm::exceptions::NotSupportedException, "BDD analysis is not supportet for this data type.");
-}
+					MTBDDTimer.start();
+					// make MTBDD out of leaves
+					std::deque<storm::dd::Add<storm::dd::DdType::Sylvan, double>> terminal_nodes;
+					std::shared_ptr<storm::dd::DdManager<storm::dd::DdType::Sylvan>> manager(new storm::dd::DdManager<storm::dd::DdType::Sylvan>());
 
-template<typename ValueType>
-void exportDFTToJsonFile(storm::dft::storage::DFT<ValueType> const& dft, std::string const& file) {
-    storm::dft::storage::DftJsonExporter<ValueType>::toFile(dft, file);
-}
 
-template<typename ValueType>
-std::string exportDFTToJsonString(storm::dft::storage::DFT<ValueType> const& dft) {
-    std::stringstream stream;
-    storm::dft::storage::DftJsonExporter<ValueType>::toStream(dft, stream);
-    return stream.str();
-}
+					std::cout << "Order: ";
+					for (auto name : MTBDDorderedListOfNames) {
+						std::cout << name << ", ";
+					}
+					std::cout << '\n';
 
-template<>
-void exportDFTToSMT(storm::dft::storage::DFT<double> const& dft, std::string const& file) {
-    storm::dft::modelchecker::DFTASFChecker asfChecker(dft);
-    asfChecker.convert();
-    asfChecker.toFile(file);
-}
+					for (int i = 0; i < output.size(); i++) {
+						terminal_nodes.push_back(manager->getConstant(output[i]));
+					}
+					std::deque<std::pair<storm::expressions::Variable, storm::expressions::Variable>> variableQueue;
+					for (int i = 0; i < MTBDDorderedListOfNames.size(); i++) {
+						variableQueue.push_back(manager->addMetaVariable(MTBDDorderedListOfNames[i], 0, 1));
+					}
 
-template<>
-void exportDFTToSMT(storm::dft::storage::DFT<storm::RationalFunction> const& dft, std::string const& file) {
-    STORM_LOG_THROW(false, storm::exceptions::NotSupportedException, "Export to SMT does not support this data type.");
-}
 
-template<>
-void analyzeDFTSMT(storm::dft::storage::DFT<double> const& dft, bool printOutput) {
-    uint64_t solverTimeout = 10;
+					std::deque<storm::dd::Add<storm::dd::DdType::Sylvan, double>> nodeQueue;
+					for (auto variable : variableQueue) {
+						//make nodes containing terminal nodes
+						if (variable == variableQueue[0]) {
+							for (int i = 0; i < output.size(); i += 2) {
+								nodeQueue.push_back(manager->getEncoding(variable.first, 0).ite(terminal_nodes[i], terminal_nodes[i + 1]));
+							}
+						}
+						//first nodes are made
+						else {
+							auto loopSize = nodeQueue.size() / 2;
+							for (int i = 0; i < loopSize; i++) {
+								nodeQueue.push_back(manager->getEncoding(variable.first, 0).ite(nodeQueue[0], nodeQueue[1]));
+								//pop used nodes
+								nodeQueue.pop_front();
+								nodeQueue.pop_front();
 
-    storm::dft::modelchecker::DFTASFChecker smtChecker(dft);
-    smtChecker.toSolver();
-    // Removed bound computation etc. here
-    smtChecker.setSolverTimeout(solverTimeout);
-    smtChecker.checkTleNeverFailed();
-    smtChecker.unsetSolverTimeout();
-}
+							}
+						}
+					}
+					nodeQueue[0].exportToDot(filename + "MTBB.txt");
+					familyBasedAnalysisTimer.stop();
+					MTBDDTimer.stop();
+					std::cout << "Calculation time " << familyBasedAnalysisTimer.getTimeInMilliseconds() << "ms" << '\n';
+					std::cout << "ValuePair time " << ValuePairTimer.getTimeInMilliseconds() << "ms" << '\n';
+					std::cout << "submodule time " << subModulesTimer.getTimeInMilliseconds() << "ms" << '\n';
+					std::cout << "CalcProb time " << calcProb.getTimeInMilliseconds() << "ms" << '\n';
+					std::cout << "replaceTreeTimer time " << replaceTreeTimer.getTimeInMilliseconds() << "ms" << '\n';
+					std::cout << "MTBDDTimer time " << MTBDDTimer.getTimeInMilliseconds() << "ms" << '\n';
+					std::cout << "root counter " << rootCounter << '\n';
+				}
 
-template<>
-void analyzeDFTSMT(storm::dft::storage::DFT<storm::RationalFunction> const& dft, bool printOutput) {
-    STORM_LOG_THROW(false, storm::exceptions::NotSupportedException, "Analysis by SMT not supported for this data type.");
-}
 
-template<>
-std::pair<std::shared_ptr<storm::gspn::GSPN>, uint64_t> transformToGSPN(storm::dft::storage::DFT<double> const& dft) {
-    storm::dft::settings::modules::FaultTreeSettings const& ftSettings = storm::settings::getModule<storm::dft::settings::modules::FaultTreeSettings>();
-    storm::dft::settings::modules::DftGspnSettings const& dftGspnSettings = storm::settings::getModule<storm::dft::settings::modules::DftGspnSettings>();
+				if (calculateProbability & (dft->getOrderedValuePairOfSwitchGates().empty())) {
+					//if (calculateProbability) {
+					std::cout << "Start naive family-based analysis " << '\n';
+					storm::utility::Stopwatch naiveAnalysisTimer;
+					naiveAnalysisTimer.start();
+					if (chunksize == 1) {
+						for (auto const& timebound : timepoints) {
+							auto const probability{ checker->getProbabilityAtTimebound(timebound) };
+							std::cout << "System failure probability at timebound " << timebound << " is " << probability << '\n';
+						}
+					}
+					else {
+						auto const probabilities{ checker->getProbabilitiesAtTimepoints(timepoints, chunksize) };
+						for (size_t i{ 0 }; i < timepoints.size(); ++i) {
+							auto const timebound{ timepoints[i] };
+							auto const probability{ probabilities[i] };
+							std::cout << "System failure probability at timebound " << timebound << " is " << probability << '\n';
+						}
+					}
 
-    // Set Don't Care elements
-    std::set<uint64_t> dontCareElements;
-    if (!ftSettings.isDisableDC()) {
-        // Insert all elements as Don't Care elements
-        for (std::size_t i = 0; i < dft.nrElements(); i++) {
-            dontCareElements.insert(dft.getElement(i)->id());
-        }
-    }
+					if (!properties.empty()) {
+						auto const probabilities{ adapter.check(chunksize) };
+						for (size_t i{ 0 }; i < probabilities.size(); ++i) {
+							std::cout << "Property \"" << properties.at(i)->toString() << "\" has result " << probabilities.at(i) << '\n';
+						}
+					}
+					naiveAnalysisTimer.stop();
+					std::cout << "naiveAnalysisTimer time " << naiveAnalysisTimer.getTimeInMilliseconds() << "ms" << '\n';
+				}
 
-    // Transform to GSPN
-    storm::dft::transformations::DftToGspnTransformator<double> gspnTransformator(dft);
-    auto priorities = gspnTransformator.computePriorities(dftGspnSettings.isExtendPriorities());
-    gspnTransformator.transform(priorities, dontCareElements, !dftGspnSettings.isDisableSmartTransformation(), dftGspnSettings.isMergeDCFailed(),
-                                dftGspnSettings.isExtendPriorities());
-    std::shared_ptr<storm::gspn::GSPN> gspn(gspnTransformator.obtainGSPN());
-    return std::make_pair(gspn, gspnTransformator.toplevelFailedPlaceId());
-}
+				if (importanceMeasureName != "" && timepoints.size() == 1) {
+					auto const bes{ dft->getBasicElements() };
+					std::vector<double> values{};
+					if (importanceMeasureName == "MIF") {
+						values = checker->getAllBirnbaumFactorsAtTimebound(timepoints[0]);
+					}
+					if (importanceMeasureName == "CIF") {
+						values = checker->getAllCIFsAtTimebound(timepoints[0]);
+					}
+					if (importanceMeasureName == "DIF") {
+						values = checker->getAllDIFsAtTimebound(timepoints[0]);
+					}
+					if (importanceMeasureName == "RAW") {
+						values = checker->getAllRAWsAtTimebound(timepoints[0]);
+					}
+					if (importanceMeasureName == "RRW") {
+						values = checker->getAllRRWsAtTimebound(timepoints[0]);
+					}
 
-template<>
-std::pair<std::shared_ptr<storm::gspn::GSPN>, uint64_t> transformToGSPN(storm::dft::storage::DFT<storm::RationalFunction> const& dft) {
-    STORM_LOG_THROW(false, storm::exceptions::NotSupportedException, "Transformation to GSPN not supported for this data type.");
-}
+					for (size_t i{ 0 }; i < bes.size(); ++i) {
+						std::cout << importanceMeasureName << " for the basic event " << bes[i]->name() << " at timebound " << timepoints[0] << " is " << values[i]
+							<< '\n';
+					}
+				}
+				else if (importanceMeasureName != "") {
+					auto const bes{ dft->getBasicElements() };
+					std::vector<std::vector<double>> values{};
+					if (importanceMeasureName == "MIF") {
+						values = checker->getAllBirnbaumFactorsAtTimepoints(timepoints, chunksize);
+					}
+					if (importanceMeasureName == "CIF") {
+						values = checker->getAllCIFsAtTimepoints(timepoints, chunksize);
+					}
+					if (importanceMeasureName == "DIF") {
+						values = checker->getAllDIFsAtTimepoints(timepoints, chunksize);
+					}
+					if (importanceMeasureName == "RAW") {
+						values = checker->getAllRAWsAtTimepoints(timepoints, chunksize);
+					}
+					if (importanceMeasureName == "RRW") {
+						values = checker->getAllRRWsAtTimepoints(timepoints, chunksize);
+					}
+					for (size_t i{ 0 }; i < bes.size(); ++i) {
+						for (size_t j{ 0 }; j < timepoints.size(); ++j) {
+							std::cout << importanceMeasureName << " for the basic event " << bes[i]->name() << " at timebound " << timepoints[j] << " is "
+								<< values[i][j] << '\n';
+						}
+					}
+				}
+			});
+		}
 
-std::shared_ptr<storm::jani::Model> transformToJani(storm::gspn::GSPN const& gspn, uint64_t toplevelFailedPlace) {
-    // Build Jani model
-    storm::builder::JaniGSPNBuilder builder(gspn);
-    std::shared_ptr<storm::jani::Model> model(builder.build("dft_gspn"));
+		template<>
+		void analyzeDFTBdd(std::shared_ptr<storm::dft::storage::DFT<storm::RationalFunction>> const& dft, bool const exportToDot, std::string const& filename,
+			bool const calculateMttf, double const mttfPrecision, double const mttfStepsize, std::string const mttfAlgorithmName,
+			bool const calculateMCS, bool const calculateProbability, bool const useModularisation, std::string const importanceMeasureName,
+			std::vector<double> const& timepoints, std::vector<std::shared_ptr<storm::logic::Formula const>> const& properties,
+			std::vector<std::string> const& additionalRelevantEventNames, size_t const chunksize) {
+			STORM_LOG_THROW(false, storm::exceptions::NotSupportedException, "BDD analysis is not supportet for this data type.");
+		}
 
-    // Build properties
-    std::shared_ptr<storm::expressions::ExpressionManager> const& exprManager = gspn.getExpressionManager();
-    storm::jani::Variable const& topfailedVar = builder.getPlaceVariable(toplevelFailedPlace);
-    storm::expressions::Expression targetExpression = exprManager->integer(1) == topfailedVar.getExpressionVariable().getExpression();
-    // Add variable for easier access to 'failed' state
-    builder.addTransientVariable(model.get(), "failed", targetExpression);
-    auto failedFormula = std::make_shared<storm::logic::AtomicExpressionFormula>(targetExpression);
-    auto properties = builder.getStandardProperties(model.get(), failedFormula, "Failed", "a failed state", true);
+		template<typename ValueType>
+		void exportDFTToJsonFile(storm::dft::storage::DFT<ValueType> const& dft, std::string const& file) {
+			storm::dft::storage::DftJsonExporter<ValueType>::toFile(dft, file);
+		}
 
-    // Export Jani to file
-    storm::dft::settings::modules::DftGspnSettings const& dftGspnSettings = storm::settings::getModule<storm::dft::settings::modules::DftGspnSettings>();
-    if (dftGspnSettings.isWriteToJaniSet()) {
-        auto const& jani = storm::settings::getModule<storm::settings::modules::JaniExportSettings>();
-        storm::api::exportJaniToFile(*model, properties, dftGspnSettings.getWriteToJaniFilename(), jani.isCompactJsonSet());
-    }
+		template<typename ValueType>
+		std::string exportDFTToJsonString(storm::dft::storage::DFT<ValueType> const& dft) {
+			std::stringstream stream;
+			storm::dft::storage::DftJsonExporter<ValueType>::toStream(dft, stream);
+			return stream.str();
+		}
 
-    return model;
-}
+		template<>
+		void exportDFTToSMT(storm::dft::storage::DFT<double> const& dft, std::string const& file) {
+			storm::dft::modelchecker::DFTASFChecker asfChecker(dft);
+			asfChecker.convert();
+			asfChecker.toFile(file);
+		}
 
-storm::dft::utility::RelevantEvents computeRelevantEvents(std::vector<std::shared_ptr<storm::logic::Formula const>> const& properties,
-                                                          std::vector<std::string> const& additionalRelevantEventNames) {
-    storm::dft::utility::RelevantEvents events(additionalRelevantEventNames.begin(), additionalRelevantEventNames.end());
-    events.insertNamesFromProperties(properties.begin(), properties.end());
-    return events;
-}
+		template<>
+		void exportDFTToSMT(storm::dft::storage::DFT<storm::RationalFunction> const& dft, std::string const& file) {
+			STORM_LOG_THROW(false, storm::exceptions::NotSupportedException, "Export to SMT does not support this data type.");
+		}
 
-// Explicitly instantiate methods
-template void exportDFTToJsonFile(storm::dft::storage::DFT<double> const&, std::string const&);
-template std::string exportDFTToJsonString(storm::dft::storage::DFT<double> const&);
+		template<>
+		void analyzeDFTSMT(storm::dft::storage::DFT<double> const& dft, bool printOutput) {
+			uint64_t solverTimeout = 10;
 
-template void exportDFTToJsonFile(storm::dft::storage::DFT<storm::RationalFunction> const&, std::string const&);
-template std::string exportDFTToJsonString(storm::dft::storage::DFT<storm::RationalFunction> const&);
+			storm::dft::modelchecker::DFTASFChecker smtChecker(dft);
+			smtChecker.toSolver();
+			// Removed bound computation etc. here
+			smtChecker.setSolverTimeout(solverTimeout);
+			smtChecker.checkTleNeverFailed();
+			smtChecker.unsetSolverTimeout();
+		}
 
-}  // namespace api
+		template<>
+		void analyzeDFTSMT(storm::dft::storage::DFT<storm::RationalFunction> const& dft, bool printOutput) {
+			STORM_LOG_THROW(false, storm::exceptions::NotSupportedException, "Analysis by SMT not supported for this data type.");
+		}
+
+		template<>
+		std::pair<std::shared_ptr<storm::gspn::GSPN>, uint64_t> transformToGSPN(storm::dft::storage::DFT<double> const& dft) {
+			storm::dft::settings::modules::FaultTreeSettings const& ftSettings = storm::settings::getModule<storm::dft::settings::modules::FaultTreeSettings>();
+			storm::dft::settings::modules::DftGspnSettings const& dftGspnSettings = storm::settings::getModule<storm::dft::settings::modules::DftGspnSettings>();
+
+			// Set Don't Care elements
+			std::set<uint64_t> dontCareElements;
+			if (!ftSettings.isDisableDC()) {
+				// Insert all elements as Don't Care elements
+				for (std::size_t i = 0; i < dft.nrElements(); i++) {
+					dontCareElements.insert(dft.getElement(i)->id());
+				}
+			}
+
+			// Transform to GSPN
+			storm::dft::transformations::DftToGspnTransformator<double> gspnTransformator(dft);
+			auto priorities = gspnTransformator.computePriorities(dftGspnSettings.isExtendPriorities());
+			gspnTransformator.transform(priorities, dontCareElements, !dftGspnSettings.isDisableSmartTransformation(), dftGspnSettings.isMergeDCFailed(),
+				dftGspnSettings.isExtendPriorities());
+			std::shared_ptr<storm::gspn::GSPN> gspn(gspnTransformator.obtainGSPN());
+			return std::make_pair(gspn, gspnTransformator.toplevelFailedPlaceId());
+		}
+
+		std::shared_ptr<storm::jani::Model> transformToJani(storm::gspn::GSPN const& gspn, uint64_t toplevelFailedPlace) {
+			// Build Jani model
+			storm::builder::JaniGSPNBuilder builder(gspn);
+			std::shared_ptr<storm::jani::Model> model(builder.build("dft_gspn"));
+
+			// Build properties
+			std::shared_ptr<storm::expressions::ExpressionManager> const& exprManager = gspn.getExpressionManager();
+			storm::jani::Variable const& topfailedVar = builder.getPlaceVariable(toplevelFailedPlace);
+			storm::expressions::Expression targetExpression = exprManager->integer(1) == topfailedVar.getExpressionVariable().getExpression();
+			// Add variable for easier access to 'failed' state
+			builder.addTransientVariable(model.get(), "failed", targetExpression);
+			auto failedFormula = std::make_shared<storm::logic::AtomicExpressionFormula>(targetExpression);
+			auto properties = builder.getStandardProperties(model.get(), failedFormula, "Failed", "a failed state", true);
+
+			// Export Jani to file
+			storm::dft::settings::modules::DftGspnSettings const& dftGspnSettings = storm::settings::getModule<storm::dft::settings::modules::DftGspnSettings>();
+			if (dftGspnSettings.isWriteToJaniSet()) {
+				auto const& jani = storm::settings::getModule<storm::settings::modules::JaniExportSettings>();
+				storm::api::exportJaniToFile(*model, properties, dftGspnSettings.getWriteToJaniFilename(), jani.isCompactJsonSet());
+			}
+
+			return model;
+		}
+
+		template<>
+		std::pair<std::shared_ptr<storm::gspn::GSPN>, uint64_t> transformToGSPN(storm::dft::storage::DFT<storm::RationalFunction> const& dft) {
+			STORM_LOG_THROW(false, storm::exceptions::NotSupportedException, "Transformation to GSPN not supported for this data type.");
+		}
+
+		// Explicitly instantiate methods
+		template void exportDFTToJsonFile(storm::dft::storage::DFT<double> const&, std::string const&);
+		template std::string exportDFTToJsonString(storm::dft::storage::DFT<double> const&);
+
+		template void exportDFTToJsonFile(storm::dft::storage::DFT<storm::RationalFunction> const&, std::string const&);
+		template std::string exportDFTToJsonString(storm::dft::storage::DFT<storm::RationalFunction> const&);
+
+	}  // namespace api
 }  // namespace storm::dft
